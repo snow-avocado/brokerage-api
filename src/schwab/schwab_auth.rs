@@ -25,28 +25,58 @@ struct RefreshRequestPayload {
     refresh_token: String,
 }
 
+/// Represents the token information stored in a local file.
 #[derive(Serialize, Deserialize, Debug)]
 #[allow(dead_code)]
 pub(crate) struct StoredTokenInfo {
+    /// The access token.
     pub(crate) access_token: String,
+    /// The number of seconds until the access token expires.
     pub(crate) expires_in: u64,
+    /// The ID token.
     pub(crate) id_token: String,
+    /// The refresh token.
     pub(crate) refresh_token: String,
+    /// The scope of the access token.
     pub(crate) scope: String,
+    /// The type of the token.
     pub(crate) token_type: String,
 }
 
+/// A client for handling the Schwab API authentication process.
 #[derive(Clone)]
 pub struct SchwabAuth {
     reqwest_client: Arc<Client>,
 }
 
 impl SchwabAuth {
+    /// Creates a new `SchwabAuth` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `reqwest_client` - An `Arc` wrapped `reqwest::Client` to be used for making HTTP requests.
+    ///
+    /// # Returns
+    ///
+    /// A new `SchwabAuth` instance.
     pub fn new(reqwest_client: Arc<Client>) -> Self {
         Self { reqwest_client }
     }
 
-    /// Constructs the authorization URL and waits for user input.
+    /// Guides the user through the Schwab API authorization process.
+    ///
+    /// This method constructs the authorization URL, prompts the user to log in and authorize the application,
+    /// and then exchanges the authorization code for an access token and refresh token. The tokens are then
+    /// saved to a local file.
+    ///
+    /// # Arguments
+    ///
+    /// * `app_key` - The application key.
+    /// * `secret` - The application secret.
+    ///
+    /// # Returns
+    ///
+    /// An empty `Result` indicating success or failure.
     pub async fn authorize(
         &self,
         app_key: &str,
@@ -93,6 +123,19 @@ impl SchwabAuth {
         Ok(())
     }
 
+    /// Refreshes the access token using the refresh token.
+    ///
+    /// This method reads the refresh token from the local tokens file, and then uses it to request a new
+    /// access token. The new tokens are then saved to the local file.
+    ///
+    /// # Arguments
+    ///
+    /// * `app_key` - The application key.
+    /// * `secret` - The application secret.
+    ///
+    /// # Returns
+    ///
+    /// An empty `Result` indicating success or failure.
     pub async fn refresh_tokens(&self, app_key: &str, secret: &str) -> anyhow::Result<(), anyhow::Error> {
         let json_string = fs::read_to_string(TOKENS_FILE)?;
         let data: StoredTokenInfo = serde_json::from_str(&json_string)?;

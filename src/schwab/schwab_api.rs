@@ -9,9 +9,13 @@ use crate::{schwab::{common::TOKENS_FILE, schwab_auth::StoredTokenInfo}, util::d
 
 const SCHWAB_MARKET_DATA_API_URL: &str = "https://api.schwabapi.com/marketdata/v1";
 
+/// Represents the type of contract for an options chain.
 pub enum ContractType {
+    /// Call options.
     Call,
+    /// Put options.
     Put,
+    /// All options (both call and put).
     All,
 }
 
@@ -25,12 +29,18 @@ impl fmt::Display for ContractType {
     }
 }
 
+/// Represents the fields to be returned in a quote.
 #[derive(Eq, PartialEq, Hash, Clone)]
 pub enum QuoteFields {
+    /// Quote data.
     Quote,
+    /// Fundamental data.
     Fundamental,
+    /// Extended data.
     Extended,
+    /// Reference data.
     Reference,
+    /// Regular data.
     Regular,
 }
 
@@ -46,15 +56,30 @@ impl fmt::Display for QuoteFields {
     }
 }
 
+/// A client for interacting with the Schwab API.
 pub struct SchwabApi {
     reqwest_client: Arc<Client>,
 }
 
 impl SchwabApi {
+    /// Creates a new `SchwabApi` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `reqwest_client` - An `Arc` wrapped `reqwest::Client` to be used for making HTTP requests.
+    ///
+    /// # Returns
+    ///
+    /// A new `SchwabApi` instance.
     pub fn new(reqwest_client: Arc<Client>) -> Self {
         Self { reqwest_client }
     }
 
+    /// Constructs the request headers for a Schwab API request.
+    ///
+    /// # Returns
+    ///
+    /// A `HeaderMap` containing the required headers for a Schwab API request.
     fn construct_request_headers() -> anyhow::Result<HeaderMap, anyhow::Error> {
         let mut headers = HeaderMap::new();
 
@@ -71,6 +96,17 @@ impl SchwabApi {
         Ok(headers)
     }
 
+    /// Gets quotes for a list of symbols.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - A `Vec` of `String`s representing the symbols to get quotes for.
+    /// * `fields` - An `Option`al `Vec` of `QuoteFields` to be returned in the quote.
+    /// * `indicative` - An `Option`al `bool` indicating whether to return indicative quotes.
+    ///
+    /// # Returns
+    ///
+    /// An empty `Result` indicating success or failure.
     pub async fn get_quotes(
         &self,
         symbols: Vec<String>,
@@ -112,6 +148,18 @@ impl SchwabApi {
         Ok(())
     }
 
+    /// Gets an options chain for a symbol.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol` - The symbol to get the options chain for.
+    /// * `contract_type` - The type of contract to get.
+    /// * `strike_count` - The number of strikes to return.
+    /// * `include_underlying_quote` - Whether to include the underlying quote in the response.
+    ///
+    /// # Returns
+    ///
+    /// An empty `Result` indicating success or failure.
     pub async fn get_chains(
         &self,
         symbol: String,
