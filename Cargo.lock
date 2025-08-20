@@ -189,6 +189,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "brokerage-api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-std",
+ "base64",
+ "json",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -927,22 +943,6 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
-]
-
-[[package]]
-name = "options-analyzer"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-std",
- "base64",
- "json",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
