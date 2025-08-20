@@ -1,3 +1,7 @@
+# NOTE
+This library is currently **under development**, and the only supported brokerage API is Schwab (Market Data Production), which is partially implemented.
+Contributions are welcome!
+
 # brokerage-api
 A Rust library for integrating with various brokerage APIs.
 
@@ -9,7 +13,7 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-brokerage-api = { git = "https://github.com/SeanTolino/brokerage-api" }
+brokerage-api = "0.1.3"
 ```
 
 ### Authentication
