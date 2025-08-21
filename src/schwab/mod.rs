@@ -6,5 +6,7 @@
 //! - `common`: Defines common constants and utilities for the Schwab API integration.
 
 pub mod schwab_api;
+pub mod schwab_streamer;
 pub mod schwab_auth;
+pub mod models;
 mod common;

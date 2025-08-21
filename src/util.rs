@@ -62,3 +62,26 @@ pub(crate) fn time_to_epoch_ms(date: Option<DateTime<Utc>>) -> Option<String> {
 pub(crate) fn time_to_yyyymmdd(date: Option<DateTime<Utc>>) -> Option<String> {
     date.map(|d| d.format("%Y-%m-%d").to_string())
 }
+
+/// Formats an option contract into the Schwab-standard symbol format.
+/// e.g., format_option_symbol("AAPL", "250919", 'C', 232.5) -> "AAPL  250919C00232500"
+#[allow(dead_code)]
+pub fn format_option_symbol(
+    ticker: &str,
+    yymmdd: &str,
+    side: char,
+    strike: f64,
+) -> String {
+    // 1. Pad the ticker to 6 characters
+    let padded_ticker = format!("{:<6}", ticker);
+
+    // 2. Format the strike price to 8 digits (5 whole, 3 decimal)
+    let strike_as_int = (strike * 1000.0).round() as u32;
+    let formatted_strike = format!("{:08}", strike_as_int);
+
+    // 3. Combine all parts
+    format!(
+        "{}{}{}{}",
+        padded_ticker, yymmdd, side, formatted_strike
+    )
+}
