@@ -8,7 +8,13 @@ use reqwest::{
 use serde_json::Value;
 use urlencoding::encode;
 
-use crate::{schwab::schwab_auth::StoredTokenInfo, util::dedup_ordered};
+use crate::{
+    schwab::{
+        common::{SCHWAB_MARKET_DATA_API_URL, TOKENS_FILE},
+        schwab_auth::StoredTokenInfo,
+    },
+    util::{dedup_ordered, parse_params, time_to_epoch_ms, time_to_yyyymmdd},
+};
 
 /// Represents the type of contract for an options chain.
 pub enum ContractType {
@@ -189,7 +195,6 @@ impl fmt::Display for MarketSymbol {
 /// A client for interacting with the Schwab API.
 pub struct SchwabApi {
     reqwest_client: Arc<Client>,
-    base_url: String,
     tokens_file_path: String,
 }
 
@@ -205,44 +210,43 @@ impl SchwabApi {
     /// # Returns
     ///
     /// A new `SchwabApi` instance.
-    pub fn new(reqwest_client: Arc<Client>, base_url: String, tokens_file_path: String) -> Self {
+    pub fn new(reqwest_client: Arc<Client>, tokens_file_path: String) -> Self {
         Self {
             reqwest_client,
-            base_url,
             tokens_file_path,
         }
     }
 
-    /// Parses optional parameters into a `Vec` of `(String, String)` tuples.
-    /// Filters out `None` values and converts `Some` values to strings.
-    fn parse_params<T: ToString>(params: Vec<(&str, Option<T>)>) -> Vec<(String, String)> {
-        params
-            .into_iter()
-            .filter_map(|(key, value)| value.map(|v| (key.to_string(), v.to_string())))
-            .collect()
-    }
-
-    /// Converts a `DateTime<Utc>` or `String` to an epoch timestamp in milliseconds.
-    fn time_to_epoch_ms(date: Option<DateTime<Utc>>) -> Option<String> {
-        date.map(|d| d.timestamp_millis().to_string())
-    }
-
-    /// Converts a `DateTime<Utc>` to a "YYYY-MM-DD" string.
-    fn time_to_yyyymmdd(date: Option<DateTime<Utc>>) -> Option<String> {
-        date.map(|d| d.format("%Y-%m-%d").to_string())
-    }
-
-    /// Gets quotes for a list of symbols.
+    /// Creates a new `SchwabApi` instance with default settings.
     ///
-    /// # Arguments
-    ///
-    /// * `symbols` - A `Vec` of `String`s representing the symbols to get quotes for.
-    /// * `fields` - An `Option`al `Vec` of `QuoteFields` to be returned in the quote.
-    /// * `indicative` - An `Option`al `bool` indicating whether to return indicative quotes.
+    /// This uses a default `reqwest::Client` and the default `TOKENS_FILE` path.
     ///
     /// # Returns
     ///
-    /// An empty `Result` indicating success or failure.
+    /// A new `SchwabApi` instance.
+    pub fn default() -> Self {
+        Self {
+            reqwest_client: Arc::new(Client::new()),
+            tokens_file_path: TOKENS_FILE.to_owned(),
+        }
+    }
+
+    /// Retrieves real-time quotes for a specified list of symbols.
+    ///
+    /// This method allows fetching various types of quote data (e.g., fundamental, extended)
+    /// and can optionally return indicative quotes.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - A `Vec` of `String`s representing the ticker symbols for which to retrieve quotes.
+    /// * `fields` - An `Option`al `Vec` of `QuoteFields` to specify the data fields to include in the response.
+    ///              If `None`, default fields will be returned.
+    /// * `indicative` - An `Option`al `bool` to request indicative quotes. Set to `true` for indicative quotes.
+    ///                  If `None`, the default behavior of the API will be used.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a `serde_json::Value` with the quote data, or an `anyhow::Error` if the request fails.
     pub async fn get_quotes(
         &self,
         symbols: Vec<String>,
@@ -267,7 +271,7 @@ impl SchwabApi {
 
         let request_url = format!(
             "{}/quotes?symbols={}&fields={}&indicative={}",
-            self.base_url, symbols_string, fields_string, indicative_string
+            SCHWAB_MARKET_DATA_API_URL, symbols_string, fields_string, indicative_string
         );
         let response = self
             .reqwest_client
@@ -288,10 +292,21 @@ impl SchwabApi {
     /// * `contract_type` - The type of contract to get.
     /// * `strike_count` - The number of strikes to return.
     /// * `include_underlying_quote` - Whether to include the underlying quote in the response.
+    /// Retrieves an options chain for a given symbol.
+    ///
+    /// This method allows specifying the contract type, the number of strikes, and whether to
+    /// include the underlying quote in the response.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol` - The ticker symbol for which to retrieve the options chain.
+    /// * `contract_type` - The `ContractType` to filter the options chain (e.g., Call, Put, All).
+    /// * `strike_count` - The number of strikes to return around the current price.
+    /// * `include_underlying_quote` - A `bool` indicating whether to include the underlying stock's quote in the response.
     ///
     /// # Returns
     ///
-    /// An empty `Result` indicating success or failure.
+    /// A `Result` containing a `serde_json::Value` with the options chain data, or an `anyhow::Error` if the request fails.
     pub async fn get_chains(
         &self,
         symbol: String,
@@ -303,7 +318,7 @@ impl SchwabApi {
 
         let request_url = format!(
             "{}/chains?symbol={}&contractType={}&strikeCount={}&includeUnderlyingQuote={}",
-            self.base_url,
+            SCHWAB_MARKET_DATA_API_URL,
             symbol,
             contract_type.to_string(),
             strike_count.to_string(),
@@ -326,10 +341,20 @@ impl SchwabApi {
     ///
     /// * `symbol_id` - Ticker symbol.
     /// * `fields` - Fields to get ("all", "quote", "fundamental").
+    /// Retrieves a quote for a single symbol.
+    ///
+    /// This method fetches detailed quote information for a specific ticker symbol,
+    /// with options to specify the desired fields.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol_id` - The ticker symbol for which to retrieve the quote.
+    /// * `fields` - An `Option`al `Vec` of `QuoteFields` to specify the data fields to include in the response.
+    ///              If `None`, default fields will be returned.
     ///
     /// # Returns
     ///
-    /// `Result` containing quote for a single symbol or an error.
+    /// A `Result` containing a `serde_json::Value` with the quote data, or an `anyhow::Error` if the request fails.
     pub async fn quote(
         &self,
         symbol_id: String,
@@ -346,9 +371,13 @@ impl SchwabApi {
             None => "".to_owned(),
         };
 
-        let params = SchwabApi::parse_params(vec![("fields", Some(fields_string))]);
+        let params = parse_params(vec![("fields", Some(fields_string))]);
 
-        let request_url = format!("{}/{}/quotes", self.base_url, encode(&symbol_id));
+        let request_url = format!(
+            "{}/{}/quotes",
+            SCHWAB_MARKET_DATA_API_URL,
+            encode(&symbol_id)
+        );
         let response = self
             .reqwest_client
             .get(request_url)
@@ -366,19 +395,26 @@ impl SchwabApi {
     /// # Arguments
     ///
     /// * `symbol` - Ticker symbol.
+    /// Retrieves the option expiration chain for a given ticker symbol.
+    ///
+    /// This provides a list of available expiration dates for options contracts related to the symbol.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol` - The ticker symbol for which to retrieve the option expiration chain.
     ///
     /// # Returns
     ///
-    /// `Result` containing option expiration chain or an error.
+    /// A `Result` containing a `serde_json::Value` with the option expiration chain data, or an `anyhow::Error` if the request fails.
     pub async fn option_expiration_chain(
         &self,
         symbol: String,
     ) -> anyhow::Result<Value, anyhow::Error> {
         let headers = self.construct_request_headers().await?;
 
-        let params = SchwabApi::parse_params(vec![("symbol", Some(symbol))]);
+        let params = parse_params(vec![("symbol", Some(symbol))]);
 
-        let request_url = format!("{}/expirationchain", self.base_url);
+        let request_url = format!("{}/expirationchain", SCHWAB_MARKET_DATA_API_URL);
         let response = self
             .reqwest_client
             .get(request_url)
@@ -404,10 +440,26 @@ impl SchwabApi {
     /// * `end_date` - End date.
     /// * `need_extended_hours_data` - Need extended hours data (True|False).
     /// * `need_previous_close` - Need previous close (True|False).
+    /// Retrieves historical price data (candle history) for a given ticker symbol.
+    ///
+    /// This method allows extensive customization of the historical data, including period type,
+    /// frequency, start and end dates, and whether to include extended hours data.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol` - The ticker symbol for which to retrieve price history.
+    /// * `period_type` - An `Option`al `PeriodType` to specify the overall period of the data (e.g., Day, Month, Year).
+    /// * `period` - An `Option`al `u64` representing the number of periods to retrieve.
+    /// * `frequency_type` - An `Option`al `FrequencyType` to specify the granularity of the data (e.g., Minute, Daily, Weekly).
+    /// * `frequency` - An `Option`al `u64` representing the number of frequency units per candle (e.g., 1, 5, 10 minutes).
+    /// * `start_date` - An `Option`al `DateTime<Utc>` to specify the start date for the historical data.
+    /// * `end_date` - An `Option`al `DateTime<Utc>` to specify the end date for the historical data.
+    /// * `need_extended_hours_data` - An `Option`al `bool` to include extended hours trading data.
+    /// * `need_previous_close` - An `Option`al `bool` to include the previous day's closing price.
     ///
     /// # Returns
     ///
-    /// `Result` containing candle history or an error.
+    /// A `Result` containing a `serde_json::Value` with the candle history data, or an `anyhow::Error` if the request fails.
     pub async fn price_history(
         &self,
         symbol: String,
@@ -422,14 +474,14 @@ impl SchwabApi {
     ) -> anyhow::Result<Value, anyhow::Error> {
         let headers = self.construct_request_headers().await?;
 
-        let params = SchwabApi::parse_params(vec![
+        let params = parse_params(vec![
             ("symbol", Some(symbol)),
             ("periodType", period_type.map(|p| p.to_string())),
             ("period", period.map(|p| p.to_string())),
             ("frequencyType", frequency_type.map(|f| f.to_string())),
             ("frequency", frequency.map(|f| f.to_string())),
-            ("startDate", SchwabApi::time_to_epoch_ms(start_date)),
-            ("endDate", SchwabApi::time_to_epoch_ms(end_date)),
+            ("startDate", time_to_epoch_ms(start_date)),
+            ("endDate", time_to_epoch_ms(end_date)),
             (
                 "needExtendedHoursData",
                 need_extended_hours_data.map(|b| b.to_string()),
@@ -440,7 +492,7 @@ impl SchwabApi {
             ),
         ]);
 
-        let request_url = format!("{}/pricehistory", self.base_url);
+        let request_url = format!("{}/pricehistory", SCHWAB_MARKET_DATA_API_URL);
         let response = self
             .reqwest_client
             .get(request_url)
@@ -464,10 +516,25 @@ impl SchwabApi {
     /// # Notes
     ///
     /// Must be called within market hours (there aren't really movers outside of market hours).
+    /// Retrieves a list of top movers for a specific index and direction.
+    ///
+    /// This method provides insights into market activity by listing symbols that have
+    /// experienced significant movement based on volume, trades, or percentage change.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol` - The index symbol (e.g., "$DJI", "$COMPX", "$SPX") or market category (e.g., "NYSE", "NASDAQ").
+    /// * `sort` - An `Option`al `Sort` order to specify how the movers should be sorted (e.g., Volume, PercentChangeUp).
+    /// * `frequency` - An `Option`al `u64` representing the frequency of the data (e.g., 0, 1, 5, 10, 30, 60).
+    ///
+    /// # Notes
+    ///
+    /// This function is most relevant when called within market hours, as movers are typically
+    /// determined by real-time trading activity.
     ///
     /// # Returns
     ///
-    /// `Result` containing movers or an error.
+    /// A `Result` containing a `serde_json::Value` with the movers data, or an `anyhow::Error` if the request fails.
     pub async fn movers(
         &self,
         symbol: String,
@@ -476,12 +543,12 @@ impl SchwabApi {
     ) -> anyhow::Result<Value, anyhow::Error> {
         let headers = self.construct_request_headers().await?;
 
-        let params = SchwabApi::parse_params(vec![
+        let params = parse_params(vec![
             ("sort", sort.map(|s| s.to_string())),
             ("frequency", frequency.map(|f| f.to_string())),
         ]);
 
-        let request_url = format!("{}/movers/{}", self.base_url, encode(&symbol));
+        let request_url = format!("{}/movers/{}", SCHWAB_MARKET_DATA_API_URL, encode(&symbol));
         let response = self
             .reqwest_client
             .get(request_url)
@@ -500,10 +567,20 @@ impl SchwabApi {
     ///
     /// * `symbols` - List of market symbols ("equity", "option", "bond", "future", "forex").
     /// * `date` - Date.
+    /// Retrieves market hours for a list of specified market symbols on a given date.
+    ///
+    /// This method provides information about when various markets (e.g., equity, option, bond)
+    /// are open or closed.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - A `Vec` of `MarketSymbol`s representing the markets for which to retrieve hours.
+    /// * `date` - An `Option`al `DateTime<Utc>` to specify the date for which to retrieve market hours.
+    ///            If `None`, the current date will be used.
     ///
     /// # Returns
     ///
-    /// `Result` containing market hours or an error.
+    /// A `Result` containing a `serde_json::Value` with the market hours data, or an `anyhow::Error` if the request fails.
     pub async fn market_hours(
         &self,
         symbols: Vec<MarketSymbol>,
@@ -517,12 +594,12 @@ impl SchwabApi {
             .collect::<Vec<String>>()
             .join(",");
 
-        let params = SchwabApi::parse_params(vec![
+        let params = parse_params(vec![
             ("markets", Some(symbols_string)),
-            ("date", SchwabApi::time_to_yyyymmdd(date)),
+            ("date", time_to_yyyymmdd(date)),
         ]);
 
-        let request_url = format!("{}/markets", self.base_url);
+        let request_url = format!("{}/markets", SCHWAB_MARKET_DATA_API_URL);
         let response = self
             .reqwest_client
             .get(request_url)
@@ -541,10 +618,20 @@ impl SchwabApi {
     ///
     /// * `market_id` - Market id ("equity"|"option"|"bond"|"future"|"forex").
     /// * `date` - Date.
+    /// Retrieves market hours for a single specified market symbol on a given date.
+    ///
+    /// This method provides detailed information about the opening and closing times for a
+    /// particular market.
+    ///
+    /// # Arguments
+    ///
+    /// * `market_id` - The `MarketSymbol` representing the specific market for which to retrieve hours.
+    /// * `date` - An `Option`al `DateTime<Utc>` to specify the date for which to retrieve market hours.
+    ///            If `None`, the current date will be used.
     ///
     /// # Returns
     ///
-    /// `Result` containing market hours or an error.
+    /// A `Result` containing a `serde_json::Value` with the market hours data, or an `anyhow::Error` if the request fails.
     pub async fn market_hour(
         &self,
         market_id: MarketSymbol,
@@ -552,9 +639,13 @@ impl SchwabApi {
     ) -> anyhow::Result<Value, anyhow::Error> {
         let headers = self.construct_request_headers().await?;
 
-        let params = SchwabApi::parse_params(vec![("date", SchwabApi::time_to_yyyymmdd(date))]);
+        let params = parse_params(vec![("date", time_to_yyyymmdd(date))]);
 
-        let request_url = format!("{}/markets/{}", self.base_url, market_id.to_string());
+        let request_url = format!(
+            "{}/markets/{}",
+            SCHWAB_MARKET_DATA_API_URL,
+            market_id.to_string()
+        );
         let response = self
             .reqwest_client
             .get(request_url)
@@ -573,10 +664,19 @@ impl SchwabApi {
     ///
     /// * `symbol` - Symbol.
     /// * `projection` - Projection ("symbol-search"|"symbol-regex"|"desc-search"|"desc-regex"|"search"|"fundamental").
+    /// Searches for instruments based on a symbol and projection type.
+    ///
+    /// This method allows finding instruments by symbol, description, or using regular expressions,
+    /// and can return fundamental data.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol` - The symbol or description to search for.
+    /// * `projection` - The `Projection` type to specify the search method and data to return.
     ///
     /// # Returns
     ///
-    /// `Result` containing instruments or an error.
+    /// A `Result` containing a `serde_json::Value` with the instrument data, or an `anyhow::Error` if the request fails.
     pub async fn instruments(
         &self,
         symbol: String,
@@ -584,12 +684,12 @@ impl SchwabApi {
     ) -> anyhow::Result<Value, anyhow::Error> {
         let headers = self.construct_request_headers().await?;
 
-        let params = SchwabApi::parse_params(vec![
+        let params = parse_params(vec![
             ("symbol", Some(symbol)),
             ("projection", Some(projection.to_string())),
         ]);
 
-        let request_url = format!("{}/instruments", self.base_url);
+        let request_url = format!("{}/instruments", SCHWAB_MARKET_DATA_API_URL);
         let response = self
             .reqwest_client
             .get(request_url)
@@ -607,14 +707,25 @@ impl SchwabApi {
     /// # Arguments
     ///
     /// * `cusip_id` - Cusip id.
+    /// Retrieves instrument details for a single CUSIP ID.
+    ///
+    /// This method provides specific information about an instrument identified by its CUSIP.
+    ///
+    /// # Arguments
+    ///
+    /// * `cusip_id` - The CUSIP ID of the instrument to retrieve.
     ///
     /// # Returns
     ///
-    /// `Result` containing instrument or an error.
+    /// A `Result` containing a `serde_json::Value` with the instrument data, or an `anyhow::Error` if the request fails.
     pub async fn instrument_cusip(&self, cusip_id: String) -> anyhow::Result<Value, anyhow::Error> {
         let headers = self.construct_request_headers().await?;
 
-        let request_url = format!("{}/instruments/{}", self.base_url, encode(&cusip_id));
+        let request_url = format!(
+            "{}/instruments/{}",
+            SCHWAB_MARKET_DATA_API_URL,
+            encode(&cusip_id)
+        );
         let response = self
             .reqwest_client
             .get(request_url)
