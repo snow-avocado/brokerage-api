@@ -20,17 +20,15 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungsten
 use tracing::{debug, warn};
 
 use crate::{
-    SchwabApi,
     schwab::{
         common::SCHWAB_STREAMER_API_URL,
         models::{
             streamer::{
-                self, LevelOneEquitiesResponse, LevelOneOptionsField, LevelOneOptionsResponse,
-                StreamerMessage,
+                self, LevelOneEquitiesResponse, LevelOneFuturesField, LevelOneFuturesResponse, LevelOneOptionsField, LevelOneOptionsResponse, StreamerMessage
             },
             trader::UserPreferencesResponse,
         },
-    },
+    }, SchwabApi
 };
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -64,9 +62,9 @@ impl fmt::Display for Command {
     }
 }
 
-impl From<String> for Command {
-    fn from(s: String) -> Command {
-        match s.as_str() {
+impl From<&str> for Command {
+    fn from(s: &str) -> Command {
+        match s {
             "ADD" => Command::Add,
             "SUBS" => Command::Subs,
             "UNSUBS" => Command::Unsubs,
@@ -82,15 +80,17 @@ impl From<String> for Command {
 pub enum Service {
     LevelOneOptions,
     LevelOneEquities,
+    LevelOneFutures,
     Admin,
     Unknown,
 }
 
-impl From<String> for Service {
-    fn from(s: String) -> Service {
-        match s.as_str() {
+impl From<&str> for Service {
+    fn from(s: &str) -> Service {
+        match s {
             "LEVELONE_EQUITIES" => Service::LevelOneEquities,
             "LEVELONE_OPTIONS" => Service::LevelOneOptions,
+            "LEVELONE_FUTURES" => Service::LevelOneFutures,
             "ADMIN" => Service::Admin,
             _ => Service::Unknown,
         }
@@ -103,6 +103,7 @@ impl fmt::Display for Service {
             Service::Admin => write!(f, "ADMIN"),
             Service::LevelOneOptions => write!(f, "LEVELONE_OPTIONS"),
             Service::LevelOneEquities => write!(f, "LEVELONE_EQUITIES"),
+            Service::LevelOneFutures => write!(f, "LEVELONE_FUTURES"),
             Service::Unknown => write!(f, "UNKNOWN"),
         }
     }
@@ -170,7 +171,6 @@ impl SchwabStreamerInner {
         let command: Command = value
             .get("command")
             .and_then(Value::as_str)
-            .map(|s| s.to_string())
             .map(Command::from)
             .unwrap_or_default();
 
@@ -215,7 +215,7 @@ impl SchwabStreamer {
 
         let streamer_info = user_preferences
             .streamer_info
-            .get(0)
+            .first()
             .ok_or_else(|| anyhow!("Streamer info not found in user preferences"))?;
 
         let streamer_info_value = serde_json::to_value(streamer_info)?;
@@ -306,7 +306,7 @@ impl SchwabStreamer {
                                     for d in data_array {
                                         let service_str =
                                             d.get("service").and_then(Value::as_str).unwrap_or("");
-                                        let service = Service::from(service_str.to_string());
+                                        let service = Service::from(service_str);
 
                                         if let Some(content) =
                                             d.get("content").and_then(Value::as_array)
@@ -353,7 +353,33 @@ impl SchwabStreamer {
                                                             }
                                                         }
                                                     }
-                                                    _ => None,
+                                                    Service::LevelOneFutures => {
+                                                        match serde_json::from_value::<
+                                                            LevelOneFuturesResponse,
+                                                        >(
+                                                            item.clone()
+                                                        ) {
+                                                            Ok(futures_data) => Some(
+                                                                StreamerMessage::LevelOneFutures(
+                                                                    futures_data,
+                                                                ),
+                                                            ),
+                                                            Err(e) => {
+                                                                warn!(
+                                                                    "Failed to deserialize LevelOneFuturesResponse: {}",
+                                                                    e
+                                                                );
+                                                                None
+                                                            }
+                                                        }
+                                                    }
+                                                    _ => {
+                                                        tracing::warn!(
+                                                            "Unknown service message: {:?}",
+                                                            service
+                                                        );
+                                                        None
+                                                    }
                                                 };
 
                                                 if let Some(msg) = message {
@@ -443,6 +469,21 @@ impl SchwabStreamer {
         };
 
         StreamRequest::new(Service::LevelOneOptions, command, keys, fields_as_strings)
+    }
+
+    pub fn level_one_futures(
+        &self,
+        keys: Vec<String>,
+        fields: Vec<LevelOneFuturesField>,
+        command: Command,
+    ) -> StreamRequest {
+        let fields_as_strings: Vec<String> = if fields.is_empty() {
+            (0..=55).map(|v| v.to_string()).collect()
+        } else {
+            fields.iter().map(|f| f.to_string()).collect()
+        };
+
+        StreamRequest::new(Service::LevelOneFutures, command, keys, fields_as_strings)
     }
 
     pub async fn stop(&self) -> anyhow::Result<()> {
