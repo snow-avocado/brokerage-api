@@ -173,7 +173,10 @@ impl From<StreamerData> for Vec<StreamerMessage> {
                 .into_iter()
                 .map(StreamerMessage::LevelOneForex)
                 .collect(),
-            StreamerData::Admin(_) => vec![],
+            StreamerData::Admin(()) => {
+                tracing::warn!("Received unhandled admin message");
+                vec![]
+            }
         }
     }
 }
