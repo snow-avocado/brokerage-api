@@ -508,7 +508,7 @@ impl SchwabApi {
 
         // The API wraps the single response in a map with the market name as the key.
         // We find the first value in the map and return it.
-        let mut response_map: MarketHoursResponse = response.json().await?;
+        let response_map: MarketHoursResponse = response.json().await?;
         let market_hours = response_map
             .into_values()
             .next()
