@@ -10,6 +10,7 @@ use std::{
 use anyhow::anyhow;
 use chrono::Utc;
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
+use serde::Deserialize;
 use serde_json::{Value, json};
 use tokio::{
     net::TcpStream,
@@ -20,20 +21,19 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungsten
 use tracing::{debug, warn};
 
 use crate::{
-    SchwabApi,
     schwab::{
         common::SCHWAB_STREAMER_API_URL,
         models::{
             streamer::{
-                self, LevelOneEquitiesResponse, LevelOneOptionsField, LevelOneOptionsResponse,
-                StreamerMessage,
+                self, LevelOneEquitiesResponse, LevelOneForexField, LevelOneForexResponse, LevelOneFuturesField, LevelOneFuturesOptionsField, LevelOneFuturesOptionsResponse, LevelOneFuturesResponse, LevelOneOptionsField, LevelOneOptionsResponse, StreamerMessage
             },
             trader::UserPreferencesResponse,
         },
     },
+    SchwabApi,
 };
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub enum Command {
     Add,
     Subs,
@@ -41,14 +41,10 @@ pub enum Command {
     View,
     Login,
     Logout,
+    #[default]
     Unknown,
 }
 
-impl Default for Command {
-    fn default() -> Self {
-        Command::Unknown
-    }
-}
 
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -64,9 +60,9 @@ impl fmt::Display for Command {
     }
 }
 
-impl From<String> for Command {
-    fn from(s: String) -> Command {
-        match s.as_str() {
+impl From<&str> for Command {
+    fn from(s: &str) -> Command {
+        match s {
             "ADD" => Command::Add,
             "SUBS" => Command::Subs,
             "UNSUBS" => Command::Unsubs,
@@ -78,19 +74,35 @@ impl From<String> for Command {
     }
 }
 
+impl<'de> serde::Deserialize<'de> for Command {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Command::from(s.as_str()))
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum Service {
     LevelOneOptions,
     LevelOneEquities,
+    LevelOneFutures,
+    LevelOneFuturesOptions,
+    LevelOneForex,
     Admin,
     Unknown,
 }
 
-impl From<String> for Service {
-    fn from(s: String) -> Service {
-        match s.as_str() {
+impl From<&str> for Service {
+    fn from(s: &str) -> Service {
+        match s {
             "LEVELONE_EQUITIES" => Service::LevelOneEquities,
             "LEVELONE_OPTIONS" => Service::LevelOneOptions,
+            "LEVELONE_FUTURES" => Service::LevelOneFutures,
+            "LEVELONE_FUTURES_OPTIONS" => Service::LevelOneFuturesOptions,
+            "LEVELONE_FOREX" => Service::LevelOneForex,
             "ADMIN" => Service::Admin,
             _ => Service::Unknown,
         }
@@ -103,9 +115,84 @@ impl fmt::Display for Service {
             Service::Admin => write!(f, "ADMIN"),
             Service::LevelOneOptions => write!(f, "LEVELONE_OPTIONS"),
             Service::LevelOneEquities => write!(f, "LEVELONE_EQUITIES"),
+            Service::LevelOneFuturesOptions => write!(f, "LEVELONE_FUTURES_OPTIONS"),
+            Service::LevelOneForex => write!(f, "LEVELONE_FOREX"),
+            Service::LevelOneFutures => write!(f, "LEVELONE_FUTURES"),
             Service::Unknown => write!(f, "UNKNOWN"),
         }
     }
+}
+
+impl<'de> serde::Deserialize<'de> for Service {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Service::from(s.as_str()))
+    }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "service", content = "content")]
+enum StreamerData {
+    #[serde(rename = "LEVELONE_EQUITIES")]
+    LevelOneEquities(Vec<LevelOneEquitiesResponse>),
+    #[serde(rename = "LEVELONE_OPTIONS")]
+    LevelOneOptions(Vec<LevelOneOptionsResponse>),
+    #[serde(rename = "LEVELONE_FUTURES")]
+    LevelOneFutures(Vec<LevelOneFuturesResponse>),
+    #[serde(rename = "LEVELONE_FUTURES_OPTIONS")]
+    LevelOneFuturesOptions(Vec<LevelOneFuturesOptionsResponse>),
+    #[serde(rename = "LEVELONE_FOREX")]
+    LevelOneForex(Vec<LevelOneForexResponse>),
+    #[serde(rename = "ADMIN")]
+    Admin(()),
+}
+
+impl From<StreamerData> for Vec<StreamerMessage> {
+    fn from(streamer_data: StreamerData) -> Self {
+        match streamer_data {
+            StreamerData::LevelOneEquities(content) => content
+                .into_iter()
+                .map(StreamerMessage::LevelOneEquity)
+                .collect(),
+            StreamerData::LevelOneOptions(content) => content
+                .into_iter()
+                .map(StreamerMessage::LevelOneOption)
+                .collect(),
+            StreamerData::LevelOneFutures(content) => content
+                .into_iter()
+                .map(StreamerMessage::LevelOneFutures)
+                .collect(),
+            StreamerData::LevelOneFuturesOptions(content) => content
+                .into_iter()
+                .map(StreamerMessage::LevelOneFuturesOptions)
+                .collect(),
+            StreamerData::LevelOneForex(content) => content
+                .into_iter()
+                .map(StreamerMessage::LevelOneForex)
+                .collect(),
+            StreamerData::Admin(()) => {
+                tracing::warn!("Received unhandled admin message");
+                vec![]
+            }
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
+struct StreamerResponse {
+    command: Command,
+    content: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize, Debug)]
+struct TopLevelMessage {
+    #[serde(default)]
+    response: Vec<StreamerResponse>,
+    #[serde(default)]
+    data: Vec<StreamerData>,
 }
 
 #[derive(Debug, Clone)]
@@ -166,37 +253,29 @@ impl SchwabStreamerInner {
         }
     }
 
-    fn handle_command_response(&mut self, value: &Value) {
-        let command: Command = value
-            .get("command")
-            .and_then(Value::as_str)
-            .map(|s| s.to_string())
-            .map(Command::from)
-            .unwrap_or_default();
-
-        match command {
+    fn handle_command_response(&mut self, response: &StreamerResponse) {
+        match response.command {
             Command::Add | Command::Subs | Command::Unsubs => {
-                debug!("Received subscription response: {:?}", value);
+                debug!("Received subscription response: {:?}", response);
             }
             Command::View => {
                 debug!("View command not supported");
             }
             Command::Login => {
-                debug!("Received login response: {:?}", value);
-                if let Some(code) = value
-                    .get("content")
-                    .and_then(|content| content.get("code").and_then(Value::as_u64))
-                {
-                    if code == 0 {
-                        self.is_active.store(true, Ordering::SeqCst);
+                debug!("Received login response: {:?}", response);
+                if let Some(content) = &response.content {
+                    if let Some(code) = content.get("code").and_then(Value::as_u64) {
+                        if code == 0 {
+                            self.is_active.store(true, Ordering::SeqCst);
+                        }
                     }
                 }
             }
             Command::Logout => {
-                debug!("Received logout response: {:?}", value);
+                debug!("Received logout response: {:?}", response);
             }
             Command::Unknown => {
-                debug!("Received unknown command response: {:?}", value);
+                debug!("Received unknown command response: {:?}", response);
             }
         }
     }
@@ -215,7 +294,7 @@ impl SchwabStreamer {
 
         let streamer_info = user_preferences
             .streamer_info
-            .get(0)
+            .first()
             .ok_or_else(|| anyhow!("Streamer info not found in user preferences"))?;
 
         let streamer_info_value = serde_json::to_value(streamer_info)?;
@@ -287,86 +366,32 @@ impl SchwabStreamer {
                 match message_result {
                     Ok(msg) => {
                         if let Ok(text) = msg.into_text() {
-                            if let Ok(json_data) = serde_json::from_str::<Value>(&text) {
-                                if let Some(responses) =
-                                    json_data.get("response").and_then(Value::as_array)
-                                {
-                                    let mut guard = inner_clone.lock().await;
-                                    for r in responses {
-                                        guard.handle_command_response(r);
-                                        // if let Some(content) = r.get("content") {
-                                        //     guard.handle_command_response(content);
-                                        // }
+                            match serde_json::from_str::<TopLevelMessage>(&text) {
+                                Ok(message) => {
+                                    if !message.response.is_empty() {
+                                        let mut guard = inner_clone.lock().await;
+                                        for r in &message.response {
+                                            guard.handle_command_response(r);
+                                        }
                                     }
-                                }
 
-                                if let Some(data_array) =
-                                    json_data.get("data").and_then(Value::as_array)
-                                {
-                                    for d in data_array {
-                                        let service_str =
-                                            d.get("service").and_then(Value::as_str).unwrap_or("");
-                                        let service = Service::from(service_str.to_string());
+                                    if !message.data.is_empty() {
+                                        for streamer_data in message.data {
+                                            let messages: Vec<StreamerMessage> = streamer_data.into();
 
-                                        if let Some(content) =
-                                            d.get("content").and_then(Value::as_array)
-                                        {
-                                            for item in content {
-                                                let message = match service {
-                                                    Service::LevelOneEquities => {
-                                                        match serde_json::from_value::<
-                                                            LevelOneEquitiesResponse,
-                                                        >(
-                                                            item.clone()
-                                                        ) {
-                                                            Ok(equity_data) => Some(
-                                                                StreamerMessage::LevelOneEquity(
-                                                                    equity_data,
-                                                                ),
-                                                            ),
-                                                            Err(e) => {
-                                                                warn!(
-                                                                    "Failed to deserialize LevelOneEquitiesResponse: {}",
-                                                                    e
-                                                                );
-                                                                None
-                                                            }
-                                                        }
-                                                    }
-                                                    Service::LevelOneOptions => {
-                                                        match serde_json::from_value::<
-                                                            LevelOneOptionsResponse,
-                                                        >(
-                                                            item.clone()
-                                                        ) {
-                                                            Ok(option_data) => Some(
-                                                                StreamerMessage::LevelOneOption(
-                                                                    option_data,
-                                                                ),
-                                                            ),
-                                                            Err(e) => {
-                                                                warn!(
-                                                                    "Failed to deserialize LevelOneOptionsResponse: {}",
-                                                                    e
-                                                                );
-                                                                None
-                                                            }
-                                                        }
-                                                    }
-                                                    _ => None,
-                                                };
-
-                                                if let Some(msg) = message {
-                                                    if tx.send(msg).await.is_err() {
-                                                        debug!(
-                                                            "Stream receiver dropped. Closing listener task."
-                                                        );
-                                                        return;
-                                                    }
+                                            for msg in messages {
+                                                if tx.send(msg).await.is_err() {
+                                                    debug!(
+                                                        "Stream receiver dropped. Closing listener task."
+                                                    );
+                                                    return;
                                                 }
                                             }
                                         }
                                     }
+                                }
+                                Err(e) => {
+                                    warn!("Failed to deserialize message: {}, error: {}", text, e);
                                 }
                             }
                         }
@@ -443,6 +468,51 @@ impl SchwabStreamer {
         };
 
         StreamRequest::new(Service::LevelOneOptions, command, keys, fields_as_strings)
+    }
+
+    pub fn level_one_futures(
+        &self,
+        keys: Vec<String>,
+        fields: Vec<LevelOneFuturesField>,
+        command: Command,
+    ) -> StreamRequest {
+        let fields_as_strings: Vec<String> = if fields.is_empty() {
+            (0..=40).map(|v| v.to_string()).collect()
+        } else {
+            fields.iter().map(|f| f.to_string()).collect()
+        };
+
+        StreamRequest::new(Service::LevelOneFutures, command, keys, fields_as_strings)
+    }
+
+    pub fn level_one_futures_options(
+        &self,
+        keys: Vec<String>,
+        fields: Vec<LevelOneFuturesOptionsField>,
+        command: Command,
+    ) -> StreamRequest {
+        let fields_as_strings: Vec<String> = if fields.is_empty() {
+            (0..=31).map(|v| v.to_string()).collect()
+        } else {
+            fields.iter().map(|f| f.to_string()).collect()
+        };
+
+        StreamRequest::new(Service::LevelOneFuturesOptions, command, keys, fields_as_strings)
+    }
+
+    pub fn level_one_forex(
+        &self,
+        keys: Vec<String>,
+        fields: Vec<LevelOneForexField>,
+        command: Command,
+    ) -> StreamRequest {
+        let fields_as_strings: Vec<String> = if fields.is_empty() {
+            (0..=29).map(|v| v.to_string()).collect()
+        } else {
+            fields.iter().map(|f| f.to_string()).collect()
+        };
+
+        StreamRequest::new(Service::LevelOneForex, command, keys, fields_as_strings)
     }
 
     pub async fn stop(&self) -> anyhow::Result<()> {

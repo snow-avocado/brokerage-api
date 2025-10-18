@@ -260,13 +260,11 @@ impl SchwabAuth {
         response_code: &str,
     ) -> AuthRequestPayload {
         // Create the request payload.
-        let payload = AuthRequestPayload {
+        AuthRequestPayload {
             grant_type: "authorization_code".to_owned(),
             code: response_code.to_owned(),
             redirect_uri: redirect_uri.to_owned(),
-        };
-
-        payload
+        }
     }
 
     /// Constructs the payload for the token refresh request.
@@ -279,12 +277,10 @@ impl SchwabAuth {
     ///
     /// A `RefreshRequestPayload` struct containing the necessary parameters for the refresh token request.
     fn construct_refresh_payload(&self, refresh_token: String) -> RefreshRequestPayload {
-        let payload = RefreshRequestPayload {
+        RefreshRequestPayload {
             grant_type: "refresh_token".to_owned(),
             refresh_token,
-        };
-
-        payload
+        }
     }
 
     /// Sends the initial token request to the Schwab API and returns the JSON response.

@@ -7,6 +7,9 @@ use std::fmt;
 pub enum StreamerMessage {
     LevelOneEquity(LevelOneEquitiesResponse),
     LevelOneOption(LevelOneOptionsResponse),
+    LevelOneFutures(LevelOneFuturesResponse),
+    LevelOneFuturesOptions(LevelOneFuturesOptionsResponse),
+    LevelOneForex(LevelOneForexResponse),
     // We can add more variants here for other data types in the future
 }
 
@@ -479,4 +482,464 @@ pub struct LevelOneEquitiesResponse {
     pub asset_sub_type: Option<String>,
     pub cusip: Option<String>,
     pub delayed: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LevelOneFuturesResponse {
+    #[serde(rename = "key")]
+    pub symbol: String,
+    #[serde(rename = "1")]
+    pub bid_price: Option<f64>,
+    #[serde(rename = "2")]
+    pub ask_price: Option<f64>,
+    #[serde(rename = "3")]
+    pub last_price: Option<f64>,
+    #[serde(rename = "4")]
+    pub bid_size: Option<i64>,
+    #[serde(rename = "5")]
+    pub ask_size: Option<i64>,
+    #[serde(rename = "6")]
+    pub bid_id: Option<String>,
+    #[serde(rename = "7")]
+    pub ask_id: Option<String>,
+    #[serde(rename = "8")]
+    pub total_volume: Option<i64>,
+    #[serde(rename = "9")]
+    pub last_size: Option<i64>,
+    #[serde(rename = "10")]
+    pub quote_time: Option<i64>,
+    #[serde(rename = "11")]
+    pub trade_time: Option<i64>,
+    #[serde(rename = "12")]
+    pub high_price: Option<f64>,
+    #[serde(rename = "13")]
+    pub low_price: Option<f64>,
+    #[serde(rename = "14")]
+    pub close_price: Option<f64>,
+    #[serde(rename = "15")]
+    pub exchange_id: Option<String>,
+    #[serde(rename = "16")]
+    pub description: Option<String>,
+    #[serde(rename = "17")]
+    pub last_id: Option<String>,
+    #[serde(rename = "18")]
+    pub open_price: Option<f64>,
+    #[serde(rename = "19")]
+    pub net_change: Option<f64>,
+    #[serde(rename = "20")]
+    pub future_percent_change: Option<f64>,
+    #[serde(rename = "21")]
+    pub exchange_name: Option<String>,
+    #[serde(rename = "22")]
+    pub security_status: Option<String>,
+    #[serde(rename = "23")]
+    pub open_interest: Option<i32>,
+    #[serde(rename = "24")]
+    pub mark: Option<f64>,
+    #[serde(rename = "25")]
+    pub tick: Option<f64>,
+    #[serde(rename = "26")]
+    pub tick_amount: Option<f64>,
+    #[serde(rename = "27")]
+    pub product: Option<String>,
+    #[serde(rename = "28")]
+    pub future_price_format: Option<String>,
+    #[serde(rename = "29")]
+    pub future_trading_hours: Option<String>,
+    #[serde(rename = "30")]
+    pub future_is_tradable: Option<bool>,
+    #[serde(rename = "31")]
+    pub future_multiplier: Option<f64>,
+    #[serde(rename = "32")]
+    pub future_is_active: Option<bool>,
+    #[serde(rename = "33")]
+    pub future_settlement_price: Option<f64>,
+    #[serde(rename = "34")]
+    pub future_active_symbol: Option<String>,
+    #[serde(rename = "35")]
+    pub future_expiration_date: Option<i64>,
+    #[serde(rename = "36")]
+    pub expiration_style: Option<String>,
+    #[serde(rename = "37")]
+    pub ask_time: Option<i64>,
+    #[serde(rename = "38")]
+    pub bid_time: Option<i64>,
+    #[serde(rename = "39")]
+    pub quoted_in_session: Option<bool>,
+    #[serde(rename = "40")]
+    pub settlement_date: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LevelOneFuturesOptionsResponse {
+    #[serde(rename = "key")]
+    pub symbol: String,
+    #[serde(rename = "1")]
+    pub bid_price: Option<f64>,
+    #[serde(rename = "2")]
+    pub ask_price: Option<f64>,
+    #[serde(rename = "3")]
+    pub last_price: Option<f64>,
+    #[serde(rename = "4")]
+    pub bid_size: Option<i64>,
+    #[serde(rename = "5")]
+    pub ask_size: Option<i64>,
+    #[serde(rename = "6")]
+    pub bid_id: Option<char>,
+    #[serde(rename = "7")]
+    pub ask_id: Option<char>,
+    #[serde(rename = "8")]
+    pub total_volume: Option<i64>,
+    #[serde(rename = "9")]
+    pub last_size: Option<i64>,
+    #[serde(rename = "10")]
+    pub quote_time: Option<i64>,
+    #[serde(rename = "11")]
+    pub trade_time: Option<i64>,
+    #[serde(rename = "12")]
+    pub high_price: Option<f64>,
+    #[serde(rename = "13")]
+    pub low_price: Option<f64>,
+    #[serde(rename = "14")]
+    pub close_price: Option<f64>,
+    #[serde(rename = "15")]
+    pub last_id: Option<char>,
+    #[serde(rename = "16")]
+    pub description: Option<String>,
+    #[serde(rename = "17")]
+    pub open_price: Option<f64>,
+    #[serde(rename = "18")]
+    pub open_interest: Option<f64>,
+    #[serde(rename = "19")]
+    pub mark: Option<f64>,
+    #[serde(rename = "20")]
+    pub tick: Option<f64>,
+    #[serde(rename = "21")]
+    pub tick_amount: Option<f64>,
+    #[serde(rename = "22")]
+    pub future_multiplier: Option<f64>,
+    #[serde(rename = "23")]
+    pub future_settlement_price: Option<f64>,
+    #[serde(rename = "24")]
+    pub underlying_symbol: Option<String>,
+    #[serde(rename = "25")]
+    pub strike_price: Option<f64>,
+    #[serde(rename = "26")]
+    pub future_expiration_date: Option<i64>,
+    #[serde(rename = "27")]
+    pub expiration_style: Option<String>,
+    #[serde(rename = "28")]
+    pub contract_type: Option<char>,
+    #[serde(rename = "29")]
+    pub security_status: Option<String>,
+    #[serde(rename = "30")]
+    pub exchange: Option<char>,
+    #[serde(rename = "31")]
+    pub exchange_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum LevelOneFuturesField {
+    Symbol,
+    BidPrice,
+    AskPrice,
+    LastPrice,
+    BidSize,
+    AskSize,
+    BidId,
+    AskId,
+    TotalVolume,
+    LastSize,
+    QuoteTime,
+    TradeTime,
+    HighPrice,
+    LowPrice,
+    ClosePrice,
+    ExchangeId,
+    Description,
+    LastId,
+    OpenPrice,
+    NetChange,
+    FuturePercentChange,
+    ExchangeName,
+    SecurityStatus,
+    OpenInterest,
+    Mark,
+    Tick,
+    TickAmount,
+    Product,
+    FuturePriceFormat,
+    FutureTradingHours,
+    FutureIsTradable,
+    FutureMultiplier,
+    FutureIsActive,
+    FutureSettlementPrice,
+    FutureActiveSymbol,
+    FutureExpirationDate,
+    ExpirationStyle,
+    AskTime,
+    BidTime,
+    QuotedInSession,
+    SettlementDate,
+}
+
+impl fmt::Display for LevelOneFuturesField {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            LevelOneFuturesField::Symbol => write!(f, "0"),
+            LevelOneFuturesField::BidPrice => write!(f, "1"),
+            LevelOneFuturesField::AskPrice => write!(f, "2"),
+            LevelOneFuturesField::LastPrice => write!(f, "3"),
+            LevelOneFuturesField::BidSize => write!(f, "4"),
+            LevelOneFuturesField::AskSize => write!(f, "5"),
+            LevelOneFuturesField::BidId => write!(f, "6"),
+            LevelOneFuturesField::AskId => write!(f, "7"),
+            LevelOneFuturesField::TotalVolume => write!(f, "8"),
+            LevelOneFuturesField::LastSize => write!(f, "9"),
+            LevelOneFuturesField::QuoteTime => write!(f, "10"),
+            LevelOneFuturesField::TradeTime => write!(f, "11"),
+            LevelOneFuturesField::HighPrice => write!(f, "12"),
+            LevelOneFuturesField::LowPrice => write!(f, "13"),
+            LevelOneFuturesField::ClosePrice => write!(f, "14"),
+            LevelOneFuturesField::ExchangeId => write!(f, "15"),
+            LevelOneFuturesField::Description => write!(f, "16"),
+            LevelOneFuturesField::LastId => write!(f, "17"),
+            LevelOneFuturesField::OpenPrice => write!(f, "18"),
+            LevelOneFuturesField::NetChange => write!(f, "19"),
+            LevelOneFuturesField::FuturePercentChange => write!(f, "20"),
+            LevelOneFuturesField::ExchangeName => write!(f, "21"),
+            LevelOneFuturesField::SecurityStatus => write!(f, "22"),
+            LevelOneFuturesField::OpenInterest => write!(f, "23"),
+            LevelOneFuturesField::Mark => write!(f, "24"),
+            LevelOneFuturesField::Tick => write!(f, "25"),
+            LevelOneFuturesField::TickAmount => write!(f, "26"),
+            LevelOneFuturesField::Product => write!(f, "27"),
+            LevelOneFuturesField::FuturePriceFormat => write!(f, "28"),
+            LevelOneFuturesField::FutureTradingHours => write!(f, "29"),
+            LevelOneFuturesField::FutureIsTradable => write!(f, "30"),
+            LevelOneFuturesField::FutureMultiplier => write!(f, "31"),
+            LevelOneFuturesField::FutureIsActive => write!(f, "32"),
+            LevelOneFuturesField::FutureSettlementPrice => write!(f, "33"),
+            LevelOneFuturesField::FutureActiveSymbol => write!(f, "34"),
+            LevelOneFuturesField::FutureExpirationDate => write!(f, "35"),
+            LevelOneFuturesField::ExpirationStyle => write!(f, "36"),
+            LevelOneFuturesField::AskTime => write!(f, "37"),
+            LevelOneFuturesField::BidTime => write!(f, "38"),
+            LevelOneFuturesField::QuotedInSession => write!(f, "39"),
+            LevelOneFuturesField::SettlementDate => write!(f, "40"),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum LevelOneFuturesOptionsField {
+    Symbol,
+    BidPrice,
+    AskPrice,
+    LastPrice,
+    BidSize,
+    AskSize,
+    BidId,
+    AskId,
+    TotalVolume,
+    LastSize,
+    QuoteTime,
+    TradeTime,
+    HighPrice,
+    LowPrice,
+    ClosePrice,
+    LastId,
+    Description,
+    OpenPrice,
+    OpenInterest,
+    Mark,
+    Tick,
+    TickAmount,
+    FutureMultiplier,
+    FutureSettlementPrice,
+    UnderlyingSymbol,
+    StrikePrice,
+    FutureExpirationDate,
+    ExpirationStyle,
+    ContractType,
+    SecurityStatus,
+    Exchange,
+    ExchangeName,
+}
+
+impl fmt::Display for LevelOneFuturesOptionsField {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            LevelOneFuturesOptionsField::Symbol => write!(f, "0"),
+            LevelOneFuturesOptionsField::BidPrice => write!(f, "1"),
+            LevelOneFuturesOptionsField::AskPrice => write!(f, "2"),
+            LevelOneFuturesOptionsField::LastPrice => write!(f, "3"),
+            LevelOneFuturesOptionsField::BidSize => write!(f, "4"),
+            LevelOneFuturesOptionsField::AskSize => write!(f, "5"),
+            LevelOneFuturesOptionsField::BidId => write!(f, "6"),
+            LevelOneFuturesOptionsField::AskId => write!(f, "7"),
+            LevelOneFuturesOptionsField::TotalVolume => write!(f, "8"),
+            LevelOneFuturesOptionsField::LastSize => write!(f, "9"),
+            LevelOneFuturesOptionsField::QuoteTime => write!(f, "10"),
+            LevelOneFuturesOptionsField::TradeTime => write!(f, "11"),
+            LevelOneFuturesOptionsField::HighPrice => write!(f, "12"),
+            LevelOneFuturesOptionsField::LowPrice => write!(f, "13"),
+            LevelOneFuturesOptionsField::ClosePrice => write!(f, "14"),
+            LevelOneFuturesOptionsField::LastId => write!(f, "15"),
+            LevelOneFuturesOptionsField::Description => write!(f, "16"),
+            LevelOneFuturesOptionsField::OpenPrice => write!(f, "17"),
+            LevelOneFuturesOptionsField::OpenInterest => write!(f, "18"),
+            LevelOneFuturesOptionsField::Mark => write!(f, "19"),
+            LevelOneFuturesOptionsField::Tick => write!(f, "20"),
+            LevelOneFuturesOptionsField::TickAmount => write!(f, "21"),
+            LevelOneFuturesOptionsField::FutureMultiplier => write!(f, "22"),
+            LevelOneFuturesOptionsField::FutureSettlementPrice => write!(f, "23"),
+            LevelOneFuturesOptionsField::UnderlyingSymbol => write!(f, "24"),
+            LevelOneFuturesOptionsField::StrikePrice => write!(f, "25"),
+            LevelOneFuturesOptionsField::FutureExpirationDate => write!(f, "26"),
+            LevelOneFuturesOptionsField::ExpirationStyle => write!(f, "27"),
+            LevelOneFuturesOptionsField::ContractType => write!(f, "28"),
+            LevelOneFuturesOptionsField::SecurityStatus => write!(f, "29"),
+            LevelOneFuturesOptionsField::Exchange => write!(f, "30"),
+            LevelOneFuturesOptionsField::ExchangeName => write!(f, "31"),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum LevelOneForexField {
+    Symbol,
+    BidPrice,
+    AskPrice,
+    LastPrice,
+    BidSize,
+    AskSize,
+    TotalVolume,
+    LastSize,
+    QuoteTime,
+    TradeTime,
+    HighPrice,
+    LowPrice,
+    ClosePrice,
+    Exchange,
+    Description,
+    OpenPrice,
+    NetChange,
+    PercentChange,
+    ExchangeName,
+    Digits,
+    SecurityStatus,
+    Tick,
+    TickAmount,
+    Product,
+    TradingHours,
+    IsTradable,
+    MarketMaker,
+    FiftyTwoWeekHigh,
+    FiftyTwoWeekLow,
+    Mark,
+}
+
+impl fmt::Display for LevelOneForexField {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            LevelOneForexField::Symbol => write!(f, "0"),
+            LevelOneForexField::BidPrice => write!(f, "1"),
+            LevelOneForexField::AskPrice => write!(f, "2"),
+            LevelOneForexField::LastPrice => write!(f, "3"),
+            LevelOneForexField::BidSize => write!(f, "4"),
+            LevelOneForexField::AskSize => write!(f, "5"),
+            LevelOneForexField::TotalVolume => write!(f, "6"),
+            LevelOneForexField::LastSize => write!(f, "7"),
+            LevelOneForexField::QuoteTime => write!(f, "8"),
+            LevelOneForexField::TradeTime => write!(f, "9"),
+            LevelOneForexField::HighPrice => write!(f, "10"),
+            LevelOneForexField::LowPrice => write!(f, "11"),
+            LevelOneForexField::ClosePrice => write!(f, "12"),
+            LevelOneForexField::Exchange => write!(f, "13"),
+            LevelOneForexField::Description => write!(f, "14"),
+            LevelOneForexField::OpenPrice => write!(f, "15"),
+            LevelOneForexField::NetChange => write!(f, "16"),
+            LevelOneForexField::PercentChange => write!(f, "17"),
+            LevelOneForexField::ExchangeName => write!(f, "18"),
+            LevelOneForexField::Digits => write!(f, "19"),
+            LevelOneForexField::SecurityStatus => write!(f, "20"),
+            LevelOneForexField::Tick => write!(f, "21"),
+            LevelOneForexField::TickAmount => write!(f, "22"),
+            LevelOneForexField::Product => write!(f, "23"),
+            LevelOneForexField::TradingHours => write!(f, "24"),
+            LevelOneForexField::IsTradable => write!(f, "25"),
+            LevelOneForexField::MarketMaker => write!(f, "26"),
+            LevelOneForexField::FiftyTwoWeekHigh => write!(f, "27"),
+            LevelOneForexField::FiftyTwoWeekLow => write!(f, "28"),
+            LevelOneForexField::Mark => write!(f, "29"),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LevelOneForexResponse {
+    #[serde(rename = "key")]
+    pub symbol: String,
+    #[serde(rename = "1")]
+    pub bid_price: Option<f64>,
+    #[serde(rename = "2")]
+    pub ask_price: Option<f64>,
+    #[serde(rename = "3")]
+    pub last_price: Option<f64>,
+    #[serde(rename = "4")]
+    pub bid_size: Option<i64>,
+    #[serde(rename = "5")]
+    pub ask_size: Option<i64>,
+    #[serde(rename = "6")]
+    pub total_volume: Option<i64>,
+    #[serde(rename = "7")]
+    pub last_size: Option<i64>,
+    #[serde(rename = "8")]
+    pub quote_time: Option<i64>,
+    #[serde(rename = "9")]
+    pub trade_time: Option<i64>,
+    #[serde(rename = "10")]
+    pub high_price: Option<f64>,
+    #[serde(rename = "11")]
+    pub low_price: Option<f64>,
+    #[serde(rename = "12")]
+    pub close_price: Option<f64>,
+    #[serde(rename = "13")]
+    pub exchange: Option<char>,
+    #[serde(rename = "14")]
+    pub description: Option<String>,
+    #[serde(rename = "15")]
+    pub open_price: Option<f64>,
+    #[serde(rename = "16")]
+    pub net_change: Option<f64>,
+    #[serde(rename = "17")]
+    pub percent_change: Option<f64>,
+    #[serde(rename = "18")]
+    pub exchange_name: Option<String>,
+    #[serde(rename = "19")]
+    pub digits: Option<i32>,
+    #[serde(rename = "20")]
+    pub security_status: Option<String>,
+    #[serde(rename = "21")]
+    pub tick: Option<f64>,
+    #[serde(rename = "22")]
+    pub tick_amount: Option<f64>,
+    #[serde(rename = "23")]
+    pub product: Option<String>,
+    #[serde(rename = "24")]
+    pub trading_hours: Option<String>,
+    #[serde(rename = "25")]
+    pub is_tradable: Option<bool>,
+    #[serde(rename = "26")]
+    pub market_maker: Option<String>,
+    #[serde(rename = "27")]
+    pub fifty_two_week_high: Option<f64>,
+    #[serde(rename = "28")]
+    pub fifty_two_week_low: Option<f64>,
+    #[serde(rename = "29")]
+    pub mark: Option<f64>,
 }
