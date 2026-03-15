@@ -277,7 +277,7 @@ impl SchwabApi {
     }
 
     /// Refreshes the token, updates the in-memory store, and writes the new token to the file.
-    async fn refresh_and_store_token(&self) -> anyhow::Result<()> {
+    pub async fn refresh_and_store_token(&self) -> anyhow::Result<()> {
         let refresh_token = {
             let token_data = self.token_info.lock().await;
             token_data.refresh_token.clone()
