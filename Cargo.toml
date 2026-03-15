@@ -9,7 +9,7 @@ keywords = ["finance", "stocks", "futures", "options", "algotrading"]
 categories = ["finance"]
 
 [dependencies]
-reqwest = { version = "0.12.23", features = ["json"] }
+reqwest = { version = "0.13", features = ["json", "query", "form"] }
 tokio = { version = "1", features = ["full", "sync"] }
 tracing = "0.1.41"
 base64 = "0.22.1"
