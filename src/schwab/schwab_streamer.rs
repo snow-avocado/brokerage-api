@@ -18,7 +18,7 @@ use tokio::{
     task::JoinHandle,
 };
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
-use tracing::{debug, warn};
+use tracing::{debug, warn, trace};
 
 use crate::{
     schwab::{
@@ -362,7 +362,7 @@ impl SchwabStreamer {
 
         let listener = tokio::spawn(async move {
             while let Some(message_result) = read.next().await {
-                debug!("READER RECEIVED: {:?}", message_result);
+                trace!("READER RECEIVED: {:?}", message_result);
                 match message_result {
                     Ok(msg) => {
                         if let Ok(text) = msg.into_text() {
