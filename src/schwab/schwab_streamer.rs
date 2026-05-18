@@ -333,18 +333,10 @@ impl SchwabStreamer {
             .await
     }
 
-    async fn reset_inner(&self) {
-        let mut guard = self.inner.lock().await;
-        guard.writer = None;
-        guard.listener_handle = None;
-        guard.is_active.store(false, Ordering::SeqCst);
-    }
-
     pub async fn start_with_config(
         &self,
         config: SchwabStreamerStartConfig,
     ) -> anyhow::Result<mpsc::Receiver<StreamerMessage>> {
-        self.reset_inner().await;
         let inner_clone = self.inner.clone();
 
         let (tx, rx) = mpsc::channel(100);
